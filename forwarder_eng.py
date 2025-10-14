@@ -4,6 +4,8 @@ import re
 import telethon
 from telethon import TelegramClient, events
 import pathlib
+from pathlib import Path
+import asyncio
 
 # === CONFIG ===
 api_id = int(os.getenv("API_ID"))
@@ -22,8 +24,25 @@ keywords = [k.strip().lower() for k in os.getenv("KEYWORDS_CHANNEL").split(",") 
 SIGNAL_ROOM_TOPIC_ID = int(os.getenv("SIGNAL_ROOM_TOPIC_ID", "0"))
 
 # === CLIENT ===
-session_path = str(pathlib.Path(__file__).parent / "forwarder_eng_session")
-client = TelegramClient(session_path, api_id, api_hash)
+
+# === PATH CORRETTO AL FILE SESSION ===
+BASE_DIR = Path(__file__).resolve().parent
+SESSION_FILE = str(BASE_DIR / "forwarder_eng_session")
+
+# === CLIENT ===
+client = TelegramClient(SESSION_FILE, api_id, api_hash)
+
+async def start_client():
+    print(f"🚀 Using Telethon version {client.__version__}")
+    await client.connect()
+    if not await client.is_user_authorized():
+        print("❌ Sessione non valida o scaduta!")
+        return False
+    print("✅ Sessione caricata correttamente!")
+    return True
+
+asyncio.get_event_loop().run_until_complete(start_client())
+
 
 print(f"🚀 Using Telethon version {telethon.__version__}")
 print(f"🔧 Configurazione:\n  - Forum ID: {source_chat}\n  - Topic ID: {SIGNAL_ROOM_TOPIC_ID}\n  - Target chats: {target_chats_raw}\n  - Keywords: {keywords}\n")
