@@ -3,6 +3,7 @@ import datetime
 import re
 import telethon
 from telethon import TelegramClient, events
+import pathlib
 
 # === CONFIG ===
 api_id = int(os.getenv("API_ID"))
@@ -21,7 +22,8 @@ keywords = [k.strip().lower() for k in os.getenv("KEYWORDS_CHANNEL").split(",") 
 SIGNAL_ROOM_TOPIC_ID = int(os.getenv("SIGNAL_ROOM_TOPIC_ID", "0"))
 
 # === CLIENT ===
-client = TelegramClient("forwarder_eng_session", api_id, api_hash)
+session_path = str(pathlib.Path(__file__).parent / "forwarder_eng_session")
+client = TelegramClient(session_path, api_id, api_hash)
 
 print(f"🚀 Using Telethon version {telethon.__version__}")
 print(f"🔧 Configurazione:\n  - Forum ID: {source_chat}\n  - Topic ID: {SIGNAL_ROOM_TOPIC_ID}\n  - Target chats: {target_chats_raw}\n  - Keywords: {keywords}\n")
