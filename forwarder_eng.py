@@ -4,33 +4,56 @@ import re
 import telethon
 from telethon import TelegramClient, events
 
+from dotenv import load_dotenv
+load_dotenv()
+
 # === CONFIG ===
 api_id = int(os.getenv("API_ID"))
 api_hash = os.getenv("API_HASH")
 
-# ID del gruppo principale (forum)
+# ID del forum sorgente
 source_chat = int(os.getenv("SOURCE_CHAT_CHANNEL"))
 
-# Canali di destinazione
-target_chats = [x.strip() for x in os.getenv("TARGET_CHATS_CHANNEL").split(",") if x.strip()]
+# Canali di destinazione (ID numerici o @username)
+target_chats_raw = [x.strip() for x in os.getenv("TARGET_CHATS_CHANNEL").split(",") if x.strip()]
 
-# Parole chiave da cercare (match parziale, case-insensitive)
+# Keywords da cercare
 keywords = [k.strip().lower() for k in os.getenv("KEYWORDS_CHANNEL").split(",") if k.strip()]
 
-# ID del topic da monitorare (ottenuto con lo script GetForumTopics)
-SIGNAL_ROOM_TOPIC_ID = int(os.getenv("SIGNAL_ROOM_TOPIC_ID", "0"))  # fallback 0 se non trovato
+# ID del topic (Signal Room)
+SIGNAL_ROOM_TOPIC_ID = int(os.getenv("SIGNAL_ROOM_TOPIC_ID", "0"))
 
 # === CLIENT ===
 client = TelegramClient("forwarder_eng_session", api_id, api_hash)
 
 print(f"🚀 Using Telethon version {telethon.__version__}")
-print(f"🔧 Configurazione:\n  - Forum ID: {source_chat}\n  - Topic ID: {SIGNAL_ROOM_TOPIC_ID}\n  - Target chats: {target_chats}\n  - Keywords: {keywords}\n")
+print(f"🔧 Configurazione:\n  - Forum ID: {source_chat}\n  - Topic ID: {SIGNAL_ROOM_TOPIC_ID}\n  - Target chats: {target_chats_raw}\n  - Keywords: {keywords}\n")
+
+# === SETUP ENTITÀ DESTINAZIONE ===
+target_entities = []
+
+async def resolve_targets():
+    print("🔍 Caricamento dialoghi...")
+    async for dialog in client.iter_dialogs():
+        pass  # serve solo a popolare la cache locale
+
+    for chat in target_chats_raw:
+        try:
+            # Se è un ID numerico, converti in int
+            if chat.startswith("-100"):
+                chat = int(chat)
+            entity = await client.get_entity(chat)
+            target_entities.append(entity)
+            print(f"✅ Target risolto: {chat} → {entity.id} ({getattr(entity, 'title', 'N/A')})")
+        except Exception as e:
+            print(f"❌ Errore nel risolvere {chat}: {e}")
+
 
 @client.on(events.NewMessage(chats=source_chat))
 async def handler(event):
-    """Gestisce i nuovi messaggi dal forum Telegram (solo Signal Room)"""
+    """Gestisce nuovi messaggi nel forum (solo topic Signal Room)"""
 
-    # --- FILTRO TOPIC ---
+    # --- Filtro topic ---
     topic_id = None
     if event.message.reply_to and hasattr(event.message.reply_to, "forum_topic_id"):
         topic_id = event.message.reply_to.forum_topic_id
@@ -38,35 +61,37 @@ async def handler(event):
         topic_id = event.message.forum_topic_id
 
     if topic_id is not None and topic_id != SIGNAL_ROOM_TOPIC_ID:
-        # Non è il topic giusto, ignora
-        return
+        return  # non è il topic giusto
 
-    # --- INFO MESSAGGIO ---
+    # --- Info messaggio ---
     sender = await event.get_sender()
     sender_name = getattr(sender, "title", None) or getattr(sender, "username", None) or "Sconosciuto"
     sender_id = getattr(sender, "id", "N/A")
     text = (event.raw_text or "").lower().strip()
 
-    # --- CERCA KEYWORDS ---
-    matched_keywords = [k for k in keywords if k in text]
+    # --- Keywords ---
+    matched = [k for k in keywords if k in text]
 
-    if matched_keywords:
-        # Inoltra a tutti i target
-        for chat in target_chats:
+    if matched:
+        tipo_media = "📸 Media" if event.message.media else "💬 Testo"
+        for entity in target_entities:
             try:
                 await client.send_message(
-                    chat,
+                    entity,
                     message=event.message,
-                    file=event.message.media  # include media
+                    file=event.message.media
                 )
-                tipo_media = "📸 Media" if event.message.media else "💬 Testo"
-                print(f"[{datetime.datetime.now()}] ✅ {tipo_media} inoltrato ({sender_name} | ID {sender_id}) → {chat} | Keywords: {matched_keywords}")
+                print(f"[{datetime.datetime.now()}] ✅ {tipo_media} inoltrato → {entity.id} | Mittente: {sender_name} | Keywords: {matched}")
             except Exception as e:
-                print(f"[{datetime.datetime.now()}] ❌ Errore inoltro a {chat}: {e}")
+                print(f"[{datetime.datetime.now()}] ❌ Errore inoltro a {entity.id}: {e}")
     else:
         print(f"[{datetime.datetime.now()}] Ignorato (nessuna keyword) | Mittente: {sender_name} | ID: {sender_id}")
 
 # === AVVIO CLIENT ===
-client.start()
-print(f"✅ Forwarder ENG attivo — monitorando solo il topic 'Signal Room' (ID {SIGNAL_ROOM_TOPIC_ID})...\n")
-client.run_until_disconnected()
+async def main():
+    await resolve_targets()
+    print(f"✅ Forwarder ENG attivo — monitorando solo il topic 'Signal Room' (ID {SIGNAL_ROOM_TOPIC_ID})...\n")
+    await client.run_until_disconnected()
+
+with client:
+    client.loop.run_until_complete(main())
