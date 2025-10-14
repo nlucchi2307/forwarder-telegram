@@ -6,9 +6,6 @@ from telethon import TelegramClient, events
 from pathlib import Path
 import telethon
 
-from dotenv import load_dotenv
-load_dotenv()
-
 # === CONFIG ===
 api_id = int(os.getenv("API_ID"))
 api_hash = os.getenv("API_HASH")
