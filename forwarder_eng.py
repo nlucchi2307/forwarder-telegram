@@ -25,16 +25,14 @@ print("📄 Session file path:", SESSION_FILE)
 print(f"🚀 Using Telethon version {telethon.__version__}")
 
 # === CLIENT ===
-client = TelegramClient(str(SESSION_FILE), api_id, api_hash)
+bot_token = os.getenv("BOT_TOKEN")
+
+client = TelegramClient("forwarder_bot", api_id, api_hash)
 
 async def start_client():
-    await client.connect()
-    if not await client.is_user_authorized():
-        print("❌ Sessione non valida o scaduta! Esegui localmente per rigenerarla.")
-        return False
-    print("✅ Sessione caricata correttamente!")
+    await client.start(bot_token=bot_token)
+    print("✅ Bot autenticato correttamente con token!")
     return True
-
 
 # === RISOLUZIONE TARGETS ===
 target_entities = []
