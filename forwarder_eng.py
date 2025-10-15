@@ -1,32 +1,23 @@
 import os
 import datetime
-import re
 import asyncio
 from telethon import TelegramClient, events
-from pathlib import Path
 import telethon
 
 # === CONFIG ===
 api_id = int(os.getenv("API_ID"))
 api_hash = os.getenv("API_HASH")
+bot_token = os.getenv("BOT_TOKEN")
 
 source_chat = int(os.getenv("SOURCE_CHAT_CHANNEL"))
 target_chats_raw = [x.strip() for x in os.getenv("TARGET_CHATS_CHANNEL").split(",") if x.strip()]
 keywords = [k.strip().lower() for k in os.getenv("KEYWORDS_CHANNEL").split(",") if k.strip()]
 SIGNAL_ROOM_TOPIC_ID = int(os.getenv("SIGNAL_ROOM_TOPIC_ID", "0"))
 
-# === PATH SESSION FILE ===
-BASE_DIR = Path(__file__).resolve().parent
-SESSION_FILE = BASE_DIR / "forwarder_eng_session.session"
-
 print("📁 Working directory:", os.getcwd())
-print("📂 Script directory:", BASE_DIR)
-print("📄 Session file path:", SESSION_FILE)
 print(f"🚀 Using Telethon version {telethon.__version__}")
 
 # === CLIENT ===
-bot_token = os.getenv("BOT_TOKEN")
-
 client = TelegramClient("forwarder_bot", api_id, api_hash)
 
 async def start_client():
@@ -34,13 +25,14 @@ async def start_client():
     print("✅ Bot autenticato correttamente con token!")
     return True
 
+
 # === RISOLUZIONE TARGETS ===
 target_entities = []
 
 async def resolve_targets():
     print("🔍 Caricamento dialoghi...")
     async for dialog in client.iter_dialogs():
-        pass  # popola la cache locale
+        pass  # Popola la cache locale
     for chat in target_chats_raw:
         try:
             if chat.startswith("-100"):
@@ -78,16 +70,27 @@ async def handler(event):
         print(f"[{datetime.datetime.now()}] Ignorato (nessuna keyword) | Mittente: {sender_name} | ID: {sender_id}")
 
 
+# === KEEP-ALIVE TASK ===
+async def keep_alive():
+    while True:
+        print(f"[{datetime.datetime.now()}] 🟢 Bot attivo e in ascolto...")
+        await asyncio.sleep(1800)  # 30 minuti
+
+
 # === MAIN ===
 async def main():
-    if not await start_client():
-        return
+    await start_client()
     print(f"🔧 Configurazione:\n  - Forum ID: {source_chat}\n  - Topic ID: {SIGNAL_ROOM_TOPIC_ID}\n  - Target chats: {target_chats_raw}\n  - Keywords: {keywords}\n")
     await resolve_targets()
     print(f"✅ Forwarder ENG attivo — monitorando solo il topic 'Signal Room' (ID {SIGNAL_ROOM_TOPIC_ID})...\n")
-    await client.run_until_disconnected()
+
+    # Avvio in parallelo di forwarder e keep_alive
+    await asyncio.gather(
+        client.run_until_disconnected(),
+        keep_alive()
+    )
 
 
+# === ENTRY POINT ===
 if __name__ == "__main__":
-    with client:
-        client.loop.run_until_complete(main())
+    asyncio.run(main())
