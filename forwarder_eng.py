@@ -30,16 +30,13 @@ async def start_client():
 target_entities = []
 
 async def resolve_targets():
-    print("🔍 Caricamento dialoghi...")
-    async for dialog in client.iter_dialogs():
-        pass  # Popola la cache locale
+    print("🔍 Risoluzione dei target senza iterare dialoghi...")
     for chat in target_chats_raw:
         try:
-            if chat.startswith("-100"):
-                chat = int(chat)
-            entity = await client.get_entity(chat)
+            chat_id = int(chat) if chat.startswith("-100") else chat
+            entity = await client.get_entity(chat_id)
             target_entities.append(entity)
-            print(f"✅ Target risolto: {chat} → {entity.id} ({getattr(entity, 'title', 'N/A')})")
+            print(f"✅ Target risolto: {chat_id} → {entity.id} ({getattr(entity, 'title', 'N/A')})")
         except Exception as e:
             print(f"❌ Errore nel risolvere {chat}: {e}")
 
@@ -74,7 +71,7 @@ async def handler(event):
 async def keep_alive():
     while True:
         print(f"[{datetime.datetime.now()}] 🟢 Bot attivo e in ascolto...")
-        await asyncio.sleep(1800)  # 30 minuti
+        await asyncio.sleep(1800)  # ogni 30 minuti
 
 
 # === MAIN ===
@@ -84,13 +81,12 @@ async def main():
     await resolve_targets()
     print(f"✅ Forwarder ENG attivo — monitorando solo il topic 'Signal Room' (ID {SIGNAL_ROOM_TOPIC_ID})...\n")
 
-    # Avvio in parallelo di forwarder e keep_alive
+    # Avvia forwarder + keep alive in parallelo
     await asyncio.gather(
         client.run_until_disconnected(),
         keep_alive()
     )
 
 
-# === ENTRY POINT ===
 if __name__ == "__main__":
     asyncio.run(main())
