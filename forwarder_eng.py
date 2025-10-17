@@ -46,11 +46,9 @@ async def resolve_targets():
 @client.on(events.NewMessage(chats=source_chat))
 async def handler(event):
     topic_id = getattr(event.message, "forum_topic_id", None)
-
-    # 🔧 Log debug per capire da dove arriva il messaggio
     print(f"[DEBUG] Messaggio ricevuto | topic_id={topic_id} | testo: {event.raw_text[:60]}")
 
-    # 👉 Filtro per topic: passa solo se è None (no forum) o se è il topic giusto
+    # accetta solo il topic giusto
     if topic_id not in (None, SIGNAL_ROOM_TOPIC_ID):
         return
 
@@ -58,19 +56,22 @@ async def handler(event):
     sender_name = getattr(sender, "title", None) or getattr(sender, "username", None) or "Sconosciuto"
     text = (event.raw_text or "").lower()
 
-    # regex più flessibile per TP / SL / ecc.
-    matched = [k for k in keywords if re.search(rf'\b{k}\b', text)]
+    # match flessibile (es. pips✅, tp:)
+    matched = [k for k in keywords if re.search(rf'(?<!\w){re.escape(k)}(?!\w)', text)]
 
-    if matched:
+    # nuova condizione: inoltra se ha keyword O se ha media
+    has_media = bool(event.message.media)
+
+    if matched or has_media:
+        motivo = "📸 Media" if has_media else f"🔑 Keywords: {matched}"
         for entity in target_entities:
             try:
                 await client.send_message(entity, message=event.message)
-                print(f"[{datetime.datetime.now()}] ✅ Inoltrato → {entity.id} | da {sender_name} | keyword: {matched}")
+                print(f"[{datetime.datetime.now()}] ✅ Inoltrato → {entity.id} | da {sender_name} | {motivo}")
             except Exception as e:
                 print(f"[{datetime.datetime.now()}] ❌ Errore inoltro: {e}")
     else:
-        print(f"[{datetime.datetime.now()}] Ignorato (nessuna keyword) | da {sender_name}")
-
+        print(f"[{datetime.datetime.now()}] Ignorato (nessuna keyword né media) | da {sender_name}")
 
 
 # === KEEP-ALIVE TASK ===
