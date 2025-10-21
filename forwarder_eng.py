@@ -12,7 +12,7 @@ bot_token = os.getenv("BOT_TOKEN")
 
 source_chat = int(os.getenv("SOURCE_CHAT_CHANNEL"))
 target_chats_raw = [x.strip() for x in os.getenv("TARGET_CHATS_CHANNEL").split(",") if x.strip()]
-keywords = [k.strip().lower() for k in os.getenv("KEYWORDS_CHANNEL").split(",") if k.strip()]
+keywords = [k.strip() for k in os.getenv("KEYWORDS_CHANNEL").split(",") if k.strip()]
 SIGNAL_ROOM_TOPIC_ID = int(os.getenv("SIGNAL_ROOM_TOPIC_ID", "0"))
 
 print("📁 Working directory:", os.getcwd())
@@ -57,7 +57,7 @@ async def handler(event):
     text = (event.raw_text or "").lower()
 
     # match flessibile (es. pips✅, tp:)
-    matched = [k for k in keywords if re.search(rf'(?<!\w){re.escape(k)}(?!\w)', text)]
+    matched = [k for k in keywords if re.search(rf'{re.escape(k)}', text, flags=re.IGNORECASE)]
 
     # nuova condizione: inoltra se ha keyword O se ha media
     has_media = bool(event.message.media)
@@ -72,7 +72,6 @@ async def handler(event):
                 print(f"[{datetime.datetime.now()}] ❌ Errore inoltro: {e}")
     else:
         print(f"[{datetime.datetime.now()}] Ignorato (nessuna keyword né media) | da {sender_name}")
-
 
 # === KEEP-ALIVE TASK ===
 async def keep_alive():
