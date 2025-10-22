@@ -6,9 +6,9 @@ from telethon import TelegramClient, events
 import telethon
 
 # === CONFIG ===
-api_id = int(os.getenv("ENG_API_ID"))
-api_hash = os.getenv("ENG_API_HASH")
-bot_token = os.getenv("ENG_BOT_TOKEN")
+api_id = int(os.getenv("API_ID"))
+api_hash = os.getenv("API_HASH")
+bot_token = os.getenv("BOT_TOKEN")
 
 source_chat = int(os.getenv("ENG_SOURCE_CHAT"))
 target_chat = int(os.getenv("ENG_TARGET_CHAT"))
