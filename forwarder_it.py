@@ -37,6 +37,21 @@ async def start_client():
 @client.on(events.NewMessage(chats=source_chat))
 async def handler(event):
     topic_id = getattr(event.message, "forum_topic_id", None)
+
+    # Se il messaggio non ha topic_id, decidiamo in base al contenuto
+    if topic_id is None:
+        text_lower = (event.message.text or "").lower()
+        # parole indicative di messaggi "storici"
+        hist_markers = ["ottobre 2025", "novembre 2025", "dicembre 2025", "report settimanale", 
+                        "risultato mese di ottobre", "risultato mese di novembre", "risultato mese di dicembre"]
+
+        if any(word in text_lower for word in hist_markers):
+            topic_id = int(os.getenv("IT_STORICO_SALA_TOPIC_ID_SOURCE"))
+            print(f"[DEBUG IT] Nessun topic_id ma contiene indicatori 'Storico' → assegnato topic_id={topic_id}")
+        else:
+            topic_id = int(os.getenv("IT_SALA_ORO_TOPIC_ID_SOURCE"))
+            print(f"[DEBUG IT] Nessun topic_id → trattato come Sala Oro / Analisi ({topic_id})")
+
     sender = await event.get_sender()
     sender_name = getattr(sender, "title", None) or getattr(sender, "username", None) or "Sconosciuto"
     text = (event.raw_text or "")
@@ -49,11 +64,11 @@ async def handler(event):
 
     print(f"[DEBUG IT] Messaggio ricevuto | topic_id={topic_id} | media={has_media} | testo: {text[:80]}")
 
+    # 🔍 Gestione inoltro in base al topic
     if topic_id not in mapping:
         print(f"[{datetime.datetime.now()}] ⚪ [IT] Ignorato (topic {topic_id} non gestito)")
         return
 
-    # Se viene da Storico → inoltra tutto
     if topic_id == int(os.getenv("IT_STORICO_SALA_TOPIC_ID_SOURCE")):
         motivo = "📜 Storico (inoltro completo)"
         do_forward = True

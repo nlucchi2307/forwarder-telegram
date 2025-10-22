@@ -37,6 +37,19 @@ async def start_client():
 @client.on(events.NewMessage(chats=source_chat))
 async def handler(event):
     topic_id = getattr(event.message, "forum_topic_id", None)
+
+    # Se il messaggio non ha topic_id, decidiamo in base al contenuto
+    if topic_id is None:
+        text_lower = (event.message.text or "").lower()
+        hist_markers = ["weekly report", "weekly performance", "october 2025", "november 2025", "december 2025"]
+
+        if any(word in text_lower for word in hist_markers):
+            topic_id = int(os.getenv("ENG_HISTORICAL_TOPIC_ID_SOURCE"))
+            print(f"[DEBUG ENG] Nessun topic_id ma contiene indicatori 'Historical' → assegnato topic_id={topic_id}")
+        else:
+            topic_id = int(os.getenv("ENG_SIGNAL_ROOM_TOPIC_ID_SOURCE"))
+            print(f"[DEBUG ENG] Nessun topic_id → trattato come Signal Room ({topic_id})")
+
     sender = await event.get_sender()
     sender_name = getattr(sender, "title", None) or getattr(sender, "username", None) or "Sconosciuto"
     text = (event.raw_text or "")
@@ -45,11 +58,11 @@ async def handler(event):
 
     print(f"[DEBUG ENG] Messaggio ricevuto | topic_id={topic_id} | media={has_media} | testo: {text[:80]}")
 
+    # 🔍 Gestione inoltro in base al topic
     if topic_id not in mapping:
         print(f"[{datetime.datetime.now()}] ⚪ [ENG] Ignorato (topic {topic_id} non gestito)")
         return
 
-    # Se viene da Historical → inoltra tutto
     if topic_id == int(os.getenv("ENG_HISTORICAL_TOPIC_ID_SOURCE")):
         motivo = "📜 Historical (inoltro completo)"
         do_forward = True
