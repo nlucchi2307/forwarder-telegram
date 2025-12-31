@@ -25,6 +25,17 @@ keywords = [k.strip() for k in os.getenv("ENG_KEYWORDS_CHANNEL").split(",") if k
 print("📁 Working directory:", os.getcwd())
 print(f"🚀 Using Telethon version {telethon.__version__}")
 
+# =========================
+# NEGATIVE KEYWORDS (HARD-CODED)
+# =========================
+NEGATIVE_KEYWORDS = [
+    "live",
+    "webinar",
+    "link",
+    "join",
+    "participate",
+]
+
 # === CLIENT ===
 client = TelegramClient("forwarder_eng_bot", api_id, api_hash)
 
@@ -38,10 +49,24 @@ async def start_client():
 async def handler(event):
     topic_id = getattr(event.message, "forum_topic_id", None)
 
+    text = (event.raw_text or "")
+    text_lower = text.lower()
+    has_media = bool(event.message.media)
+
+    # ❌ BLOCCO NEGATIVE KEYWORDS
+    if any(neg in text_lower for neg in NEGATIVE_KEYWORDS):
+        print(f"[ENG] 🚫 Ignorato per negative keyword | testo: {text[:80]}")
+        return
+
     # Se il messaggio non ha topic_id, decidiamo in base al contenuto
     if topic_id is None:
-        text_lower = (event.message.text or "").lower()
-        hist_markers = ["weekly report", "weekly performance", "october 2025", "november 2025", "december 2025"]
+        hist_markers = [
+            "weekly report",
+            "weekly performance",
+            "october 2025",
+            "november 2025",
+            "december 2025",
+        ]
 
         if any(word in text_lower for word in hist_markers):
             topic_id = int(os.getenv("ENG_HISTORICAL_TOPIC_ID_SOURCE"))
@@ -52,9 +77,11 @@ async def handler(event):
 
     sender = await event.get_sender()
     sender_name = getattr(sender, "title", None) or getattr(sender, "username", None) or "Sconosciuto"
-    text = (event.raw_text or "")
-    has_media = bool(event.message.media)
-    matched = [k for k in keywords if re.search(rf'(?<![a-zA-Z]){re.escape(k)}(?![a-zA-Z])', text, flags=re.IGNORECASE)]
+
+    matched = [
+        k for k in keywords
+        if re.search(rf'(?<![a-zA-Z]){re.escape(k)}(?![a-zA-Z])', text, flags=re.IGNORECASE)
+    ]
 
     print(f"[DEBUG ENG] Messaggio ricevuto | topic_id={topic_id} | media={has_media} | testo: {text[:80]}")
 
@@ -94,7 +121,13 @@ async def keep_alive():
 # === MAIN ===
 async def main():
     await start_client()
-    print(f"🔧 [ENG] Configurazione:\n  - SOURCE_CHAT: {source_chat}\n  - TARGET_CHAT: {target_chat}\n  - Mapping: {mapping}\n  - Keywords: {keywords}\n")
+    print(
+        f"🔧 [ENG] Configurazione:\n"
+        f"  - SOURCE_CHAT: {source_chat}\n"
+        f"  - TARGET_CHAT: {target_chat}\n"
+        f"  - Mapping: {mapping}\n"
+        f"  - Keywords: {keywords}\n"
+    )
     await asyncio.gather(
         client.run_until_disconnected(),
         keep_alive()
